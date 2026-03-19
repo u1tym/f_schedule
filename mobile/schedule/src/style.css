@@ -76,21 +76,41 @@ body {
   min-height: 64px;
 }
 
+.row-weekday .date-col,
+.row-weekday .schedule-col {
+  background: #ffffff;
+}
+
+.row-saturday .date-col,
+.row-saturday .schedule-col {
+  background: #eff6ff;
+}
+
+.row-sun-holiday .date-col,
+.row-sun-holiday .schedule-col {
+  background: #fee2e2;
+}
+
 .date-col {
   width: 92px;
   flex-shrink: 0;
-  padding: 10px 8px;
-  text-align: center;
+  padding: 10px 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 2px;
   border-right: 1px solid #f1f5f9;
 }
 
 .weekday {
-  margin-left: 2px;
+  margin-left: 0;
 }
 
 .day-number {
   font-weight: 700;
   font-size: 20px;
+  width: 2ch;
+  text-align: right;
 }
 
 .weekday,
@@ -105,21 +125,22 @@ body {
 .weekday,
 .day-number {
   display: inline-block;
+  vertical-align: baseline;
 }
 
 .weekday {
   margin-left: 3px;
 }
 
-.saturday {
+.date-saturday {
   color: #1d4ed8;
 }
 
-.sun-holiday {
+.date-sun-holiday {
   color: #dc2626;
 }
 
-.weekday:not(.saturday):not(.sun-holiday) {
+.date-weekday {
   color: #111827;
 }
 

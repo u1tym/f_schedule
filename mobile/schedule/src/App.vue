@@ -151,12 +151,22 @@ const scheduleText = (item: ScheduleListItem): string => {
 
 const scheduleClass = (row: DayRow): string => {
   if (row.isHoliday || row.isSunday) {
-    return 'sun-holiday'
+    return 'date-sun-holiday'
   }
   if (row.isSaturday) {
-    return 'saturday'
+    return 'date-saturday'
   }
-  return 'weekday'
+  return 'date-weekday'
+}
+
+const rowClass = (row: DayRow): string => {
+  if (row.isHoliday || row.isSunday) {
+    return 'row-sun-holiday'
+  }
+  if (row.isSaturday) {
+    return 'row-saturday'
+  }
+  return 'row-weekday'
 }
 
 const backgroundColor = (item: ScheduleListItem): string => {
@@ -362,6 +372,7 @@ onMounted(async () => {
         v-for="row in dayRows"
         :key="row.dateKey"
         class="day-row"
+        :class="rowClass(row)"
         @click="openCreateDialog(row.dateKey)"
       >
         <div class="date-col" :class="scheduleClass(row)">
