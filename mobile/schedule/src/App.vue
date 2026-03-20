@@ -2,6 +2,9 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { api } from './api'
 import type { ScheduleListItem, SchedulePayload, ScheduleType } from './types'
+import scheduleIcon from '../images/SCHEDULE.jpg'
+import portalIcon from '../images/PORTAL.jpg'
+import configIcon from '../images/CONFIG.jpg'
 
 interface DayRow {
   date: Date
@@ -320,6 +323,10 @@ const shiftMonth = async (delta: number): Promise<void> => {
   await loadMonthData()
 }
 
+const openPortal = (): void => {
+  window.location.href = '../m.html'
+}
+
 const toggleView = (): void => {
   window.alert('表示切替は今後実装予定です。')
 }
@@ -356,7 +363,20 @@ onMounted(async () => {
 <template>
   <main class="mobile-root">
     <header class="header">
-      <button class="icon-button" type="button" @click="toggleView">表示切替</button>
+      <div class="header-top">
+        <div class="title-wrap">
+          <img :src="scheduleIcon" alt="" class="header-icon" />
+          <strong>SCHEDULE</strong>
+        </div>
+        <div class="header-actions">
+          <button class="icon-button icon-only" type="button" aria-label="設定" @click="toggleView">
+            <img :src="configIcon" alt="" class="header-icon" />
+          </button>
+          <button class="icon-button icon-only" type="button" aria-label="PORTALへ移動" @click="openPortal">
+            <img :src="portalIcon" alt="" class="header-icon" />
+          </button>
+        </div>
+      </div>
       <div class="month-nav">
         <button type="button" class="nav-button" @click="shiftMonth(-1)">＜</button>
         <strong>{{ monthLabel }}</strong>
