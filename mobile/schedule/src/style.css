@@ -162,6 +162,64 @@ body {
   background: #fee2e2;
 }
 
+/* 今日の行：日付列・予定列を強調 */
+.day-row--today {
+  position: relative;
+  z-index: 0;
+}
+
+.day-row--today::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: #2563eb;
+  border-radius: 0 2px 2px 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.day-row.day-row--today .date-col,
+.day-row.day-row--today .schedule-col {
+  background: #dbeafe;
+}
+
+.day-row.day-row--today .date-col {
+  border-right-color: #93c5fd;
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.2);
+}
+
+.day-row.day-row--today .schedule-col {
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.15);
+}
+
+.date-col--today .day-number {
+  color: #1d4ed8;
+  font-size: 22px;
+}
+
+.date-col--today .weekday {
+  color: #1e40af;
+  font-weight: 700;
+}
+
+.date-col--today.date-sun-holiday .day-number,
+.date-col--today.date-sun-holiday .weekday {
+  color: #1e3a8a;
+}
+
+.date-col--today.date-saturday .day-number,
+.date-col--today.date-saturday .weekday {
+  color: #1d4ed8;
+}
+
+.schedule-col--today .holiday-name {
+  color: #1e40af;
+  font-weight: 600;
+}
+
 .date-col {
   width: 92px;
   flex-shrink: 0;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { api } from './api'
 import type { ScheduleListItem, SchedulePayload, ScheduleType } from './types'
 import scheduleIcon from '../images/SCHEDULE.png'
@@ -16,6 +16,7 @@ interface DayRow {
   isHoliday: boolean
   isSaturday: boolean
   isSunday: boolean
+  isToday: boolean
 }
 
 type DialogMode = 'create' | 'edit'
@@ -42,6 +43,8 @@ const schedules = ref<ScheduleListItem[]>([])
 
 const isLoading = ref(false)
 const errorMessage = ref('')
+
+const dayListEl = ref<HTMLElement | null>(null)
 
 const showDialog = ref(false)
 const dialogMode = ref<DialogMode>('create')
@@ -84,6 +87,7 @@ const dayRows = computed<DayRow[]>(() => {
   const rows: DayRow[] = []
   const { start, end } = monthRange.value
   const dayCount = end.getDate()
+  const todayKey = toDateKey(new Date())
   for (let day = 1; day <= dayCount; day += 1) {
     const date = new Date(start.getFullYear(), start.getMonth(), day)
     const dateKey = toDateKey(date)
@@ -99,6 +103,7 @@ const dayRows = computed<DayRow[]>(() => {
       isHoliday: Boolean(holidayName),
       isSaturday: weekday === 6,
       isSunday: weekday === 0,
+      isToday: dateKey === todayKey,
     })
   }
   return rows
@@ -321,6 +326,10 @@ const shiftMonth = async (delta: number): Promise<void> => {
   const date = currentMonth.value
   currentMonth.value = new Date(date.getFullYear(), date.getMonth() + delta, 1)
   await loadMonthData()
+  await nextTick()
+  if (dayListEl.value) {
+    dayListEl.value.scrollTop = 0
+  }
 }
 
 const openPortal = (): void => {
@@ -397,19 +406,20 @@ onMounted(async () => {
     <p v-if="errorMessage" class="message error">{{ errorMessage }}</p>
     <p v-if="isLoading" class="message">読み込み中...</p>
 
-    <section class="day-list">
+    <section ref="dayListEl" class="day-list">
       <article
         v-for="row in dayRows"
         :key="row.dateKey"
         class="day-row"
-        :class="rowClass(row)"
+        :class="[rowClass(row), { 'day-row--today': row.isToday }]"
+        :aria-current="row.isToday ? 'date' : undefined"
         @click="openCreateDialog(row.dateKey)"
       >
-        <div class="date-col" :class="scheduleClass(row)">
+        <div class="date-col" :class="[scheduleClass(row), { 'date-col--today': row.isToday }]">
           <span class="day-number">{{ row.day }}</span>
           <span class="weekday">({{ row.weekdayLabel }})</span>
         </div>
-        <div class="schedule-col">
+        <div class="schedule-col" :class="{ 'schedule-col--today': row.isToday }">
           <p v-if="row.holidayName" class="holiday-name">{{ row.holidayName }}</p>
           <div
             v-for="item in row.schedules"
