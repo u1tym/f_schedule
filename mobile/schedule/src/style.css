@@ -139,6 +139,178 @@ body {
 .day-list {
   flex: 1;
   overflow-y: auto;
+  min-height: 0;
+}
+
+/* 月カレンダー（スクロールなし・6週固定） */
+.month-calendar {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 0 10px 10px;
+}
+
+.month-cal-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  flex-shrink: 0;
+  padding: 4px 0 6px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.month-cal-weekday--sun {
+  color: #dc2626;
+}
+
+.month-cal-weekday--sat {
+  color: #2563eb;
+}
+
+.month-cal-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-template-rows: repeat(6, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.month-cal-cell {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 4px 2px 6px;
+  cursor: pointer;
+  font: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.month-cal-cell:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.month-cal-cell--pad {
+  pointer-events: none;
+  cursor: default;
+  background: #f8fafc;
+  border-color: #f1f5f9;
+  opacity: 0.85;
+}
+
+.month-cal-cell--today {
+  border-color: #2563eb;
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.35);
+  background: #eff6ff;
+}
+
+.month-cal-day {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #0f172a;
+}
+
+.month-cal-cell--sun .month-cal-day {
+  color: #dc2626;
+}
+
+.month-cal-cell--sat .month-cal-day {
+  color: #2563eb;
+}
+
+.month-cal-cell--holiday .month-cal-day {
+  color: #dc2626;
+}
+
+.month-cal-dot {
+  margin-top: auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.month-cal-dot--on {
+  background: #2563eb;
+}
+
+/* 月表示の設定（Cookie と連動） */
+.settings-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 25;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 72px 14px 14px;
+}
+
+.settings-card {
+  width: min(400px, 100%);
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.18);
+}
+
+.settings-title {
+  margin: 0 0 12px;
+  font-size: 17px;
+}
+
+.settings-fieldset {
+  margin: 0 0 14px;
+  padding: 0;
+  border: none;
+}
+
+.settings-legend {
+  padding: 0;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.settings-radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.settings-radio input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+.settings-close {
+  width: 100%;
+  margin-top: 4px;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #f9fafb;
+  font-size: 14px;
+  cursor: pointer;
 }
 
 .day-row {

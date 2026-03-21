@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { api } from './api'
+import {
+  type MonthDisplayMode,
+  persistMonthDisplayMode,
+  persistWeekStartMode,
+  readMonthDisplayMode,
+  readWeekStartMode,
+  type WeekStartMode,
+} from './monthPreferences'
 import type { ScheduleListItem, SchedulePayload, ScheduleType } from './types'
 import scheduleIcon from '../images/SCHEDULE.png'
 import portalIcon from '../images/PORTAL.png'
@@ -29,6 +37,18 @@ interface TimedLayout {
   heightPct: number
   lane: number
   laneCount: number
+}
+
+interface CalendarCell {
+  key: string
+  dateKey: string | null
+  day: number | null
+  inMonth: boolean
+  hasSchedule: boolean
+  isToday: boolean
+  isHoliday: boolean
+  holidayName: string
+  weekday: number
 }
 
 interface FormState {
@@ -60,6 +80,10 @@ const dayViewHolidayName = ref('')
 
 const dayListEl = ref<HTMLElement | null>(null)
 const hourTicks = Array.from({ length: 24 }, (_, index) => index)
+
+const monthDisplayMode = ref<MonthDisplayMode>(readMonthDisplayMode())
+const weekStartsOn = ref<WeekStartMode>(readWeekStartMode())
+const showMonthSettings = ref(false)
 
 const showDialog = ref(false)
 const dialogMode = ref<DialogMode>('create')
@@ -161,6 +185,60 @@ const schedulesForDay = (dateKey: string): ScheduleListItem[] => {
     return false
   })
 }
+
+const calendarWeekdayHeaders = computed((): string[] => {
+  if (weekStartsOn.value === 'sunday') {
+    return weekdays
+  }
+  return [...weekdays.slice(1), weekdays[0]!]
+})
+
+const calendarCells = computed((): CalendarCell[] => {
+  const { start, end } = monthRange.value
+  const year = start.getFullYear()
+  const month = start.getMonth()
+  const daysInMonth = end.getDate()
+  const firstWeekday = new Date(year, month, 1).getDay()
+  const leadingEmpty =
+    weekStartsOn.value === 'sunday' ? firstWeekday : (firstWeekday + 6) % 7
+  const todayKey = toDateKey(new Date())
+  const cells: CalendarCell[] = []
+  const totalSlots = 42
+
+  for (let index = 0; index < totalSlots; index += 1) {
+    const dayNum = index - leadingEmpty + 1
+    if (dayNum < 1 || dayNum > daysInMonth) {
+      cells.push({
+        key: `pad-${index}`,
+        dateKey: null,
+        day: null,
+        inMonth: false,
+        hasSchedule: false,
+        isToday: false,
+        isHoliday: false,
+        holidayName: '',
+        weekday: -1,
+      })
+      continue
+    }
+    const date = new Date(year, month, dayNum)
+    const dateKey = toDateKey(date)
+    const weekday = date.getDay()
+    const holidayName = holidays.value[dateKey] || ''
+    cells.push({
+      key: dateKey,
+      dateKey,
+      day: dayNum,
+      inMonth: true,
+      hasSchedule: schedulesForDay(dateKey).length > 0,
+      isToday: dateKey === todayKey,
+      isHoliday: Boolean(holidayName),
+      holidayName,
+      weekday,
+    })
+  }
+  return cells
+})
 
 const scheduleText = (item: ScheduleListItem): string => {
   if (item.is_all_day) {
@@ -306,6 +384,7 @@ const loadDayData = async (dayKey: string): Promise<void> => {
 }
 
 const openDayView = async (dateKey: string): Promise<void> => {
+  showMonthSettings.value = false
   viewMode.value = 'day'
   selectedDayKey.value = dateKey
   const date = parseDate(dateKey)
@@ -319,7 +398,7 @@ const backToMonth = async (): Promise<void> => {
   dayViewHolidayName.value = ''
   await loadMonthData()
   await nextTick()
-  if (dayListEl.value) {
+  if (monthDisplayMode.value === 'list' && dayListEl.value) {
     dayListEl.value.scrollTop = 0
   }
 }
@@ -535,7 +614,7 @@ const shiftMonth = async (delta: number): Promise<void> => {
   currentMonth.value = new Date(date.getFullYear(), date.getMonth() + delta, 1)
   await loadMonthData()
   await nextTick()
-  if (dayListEl.value) {
+  if (monthDisplayMode.value === 'list' && dayListEl.value) {
     dayListEl.value.scrollTop = 0
   }
 }
@@ -544,8 +623,18 @@ const openPortal = (): void => {
   window.location.href = '../m.html'
 }
 
-const toggleView = (): void => {
-  window.alert('表示切替は今後実装予定です。')
+const toggleMonthSettings = (): void => {
+  showMonthSettings.value = !showMonthSettings.value
+}
+
+const setMonthDisplayMode = (mode: MonthDisplayMode): void => {
+  monthDisplayMode.value = mode
+  persistMonthDisplayMode(mode)
+}
+
+const setWeekStartsOn = (mode: WeekStartMode): void => {
+  weekStartsOn.value = mode
+  persistWeekStartMode(mode)
 }
 
 const loadMonthData = async (): Promise<void> => {
@@ -598,8 +687,8 @@ onMounted(async () => {
         <button
           class="header-round-btn header-round-btn--sm"
           type="button"
-          aria-label="設定"
-          @click="toggleView"
+          aria-label="月表示の設定"
+          @click="toggleMonthSettings"
         >
           <img :src="configIcon" alt="" class="header-icon-circle header-icon-circle--sm" />
         </button>
@@ -640,7 +729,11 @@ onMounted(async () => {
     <p v-if="errorMessage" class="message error">{{ errorMessage }}</p>
     <p v-if="isLoading" class="message">読み込み中...</p>
 
-    <section v-if="viewMode === 'month'" ref="dayListEl" class="day-list">
+    <section
+      v-if="viewMode === 'month' && monthDisplayMode === 'list'"
+      ref="dayListEl"
+      class="day-list"
+    >
       <article
         v-for="row in dayRows"
         :key="row.dateKey"
@@ -683,6 +776,54 @@ onMounted(async () => {
           </div>
         </div>
       </article>
+    </section>
+
+    <section
+      v-else-if="viewMode === 'month' && monthDisplayMode === 'calendar'"
+      class="month-calendar"
+      aria-label="月カレンダー"
+    >
+      <div class="month-cal-weekdays" role="row">
+        <div
+          v-for="(label, index) in calendarWeekdayHeaders"
+          :key="'wd-' + index"
+          class="month-cal-weekday"
+          :class="{
+            'month-cal-weekday--sun': weekStartsOn === 'sunday' ? index === 0 : index === 6,
+            'month-cal-weekday--sat': weekStartsOn === 'sunday' ? index === 6 : index === 5,
+          }"
+          role="columnheader"
+        >
+          {{ label }}
+        </div>
+      </div>
+      <div class="month-cal-grid" role="grid">
+        <template v-for="cell in calendarCells" :key="cell.key">
+          <button
+            v-if="cell.inMonth && cell.dateKey"
+            type="button"
+            class="month-cal-cell"
+            :class="{
+              'month-cal-cell--today': cell.isToday,
+              'month-cal-cell--sun': cell.weekday === 0 && !cell.isHoliday,
+              'month-cal-cell--sat': cell.weekday === 6,
+              'month-cal-cell--holiday': cell.isHoliday,
+            }"
+            :aria-label="
+              cell.hasSchedule ? `${cell.day}日、予定あり` : `${cell.day}日、予定なし`
+            "
+            @click="openDayView(cell.dateKey)"
+          >
+            <span class="month-cal-day">{{ cell.day }}</span>
+            <span
+              class="month-cal-dot"
+              :class="{ 'month-cal-dot--on': cell.hasSchedule }"
+              aria-hidden="true"
+            />
+          </button>
+          <div v-else class="month-cal-cell month-cal-cell--pad" aria-hidden="true" />
+        </template>
+      </div>
     </section>
 
     <section v-else class="day-view">
@@ -746,6 +887,71 @@ onMounted(async () => {
       </div>
     </section>
   </main>
+
+  <div
+    v-if="showMonthSettings"
+    class="settings-backdrop"
+    @click.self="showMonthSettings = false"
+  >
+    <section
+      class="settings-card"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="month-settings-title"
+      @click.stop
+    >
+      <h2 id="month-settings-title" class="settings-title">月表示の設定</h2>
+      <fieldset class="settings-fieldset">
+        <legend class="settings-legend">表示の種類</legend>
+        <label class="settings-radio">
+          <input
+            type="radio"
+            name="monthDisplay"
+            value="list"
+            :checked="monthDisplayMode === 'list'"
+            @change="setMonthDisplayMode('list')"
+          />
+          一覧表示
+        </label>
+        <label class="settings-radio">
+          <input
+            type="radio"
+            name="monthDisplay"
+            value="calendar"
+            :checked="monthDisplayMode === 'calendar'"
+            @change="setMonthDisplayMode('calendar')"
+          />
+          カレンダー表示
+        </label>
+      </fieldset>
+      <fieldset v-if="monthDisplayMode === 'calendar'" class="settings-fieldset">
+        <legend class="settings-legend">週の始まり</legend>
+        <label class="settings-radio">
+          <input
+            type="radio"
+            name="weekStart"
+            value="sunday"
+            :checked="weekStartsOn === 'sunday'"
+            @change="setWeekStartsOn('sunday')"
+          />
+          日曜始まり
+        </label>
+        <label class="settings-radio">
+          <input
+            type="radio"
+            name="weekStart"
+            value="monday"
+            :checked="weekStartsOn === 'monday'"
+            @change="setWeekStartsOn('monday')"
+          />
+          月曜始まり
+        </label>
+      </fieldset>
+      <button type="button" class="settings-close" @click="showMonthSettings = false">
+        閉じる
+      </button>
+    </section>
+  </div>
 
   <div v-if="showDialog" class="dialog-backdrop" @click.self="closeDialog">
     <section class="dialog-card">
