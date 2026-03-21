@@ -21,6 +21,16 @@ interface DayRow {
 
 type DialogMode = 'create' | 'edit'
 
+type ViewMode = 'month' | 'day'
+
+interface TimedLayout {
+  item: ScheduleListItem
+  topPct: number
+  heightPct: number
+  lane: number
+  laneCount: number
+}
+
 interface FormState {
   title: string
   scheduleType: ScheduleType
@@ -44,7 +54,12 @@ const schedules = ref<ScheduleListItem[]>([])
 const isLoading = ref(false)
 const errorMessage = ref('')
 
+const viewMode = ref<ViewMode>('month')
+const selectedDayKey = ref('')
+const dayViewHolidayName = ref('')
+
 const dayListEl = ref<HTMLElement | null>(null)
+const hourTicks = Array.from({ length: 24 }, (_, index) => index)
 
 const showDialog = ref(false)
 const dialogMode = ref<DialogMode>('create')
@@ -181,6 +196,187 @@ const backgroundColor = (item: ScheduleListItem): string => {
   return categoryColorMap.value.get(item.activity_category_id) || '#f3f4f6'
 }
 
+const pad2 = (value: number): string => String(value).padStart(2, '0')
+
+const dayViewDateLabel = computed(() => {
+  if (!selectedDayKey.value) return ''
+  const date = parseDate(selectedDayKey.value)
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`
+})
+
+const dayViewWeekdayLabel = computed(() => {
+  if (!selectedDayKey.value) return ''
+  return weekdays[parseDate(selectedDayKey.value).getDay()]
+})
+
+const dayViewIsToday = computed(
+  () => selectedDayKey.value !== '' && selectedDayKey.value === toDateKey(new Date()),
+)
+
+const dayViewWeekdayIndex = computed(() => {
+  if (!selectedDayKey.value) return -1
+  return parseDate(selectedDayKey.value).getDay()
+})
+
+const dayViewAllDaySchedules = computed((): ScheduleListItem[] => {
+  if (viewMode.value !== 'day' || !selectedDayKey.value) return []
+  const key = selectedDayKey.value
+  return schedules.value.filter((item) => {
+    if (!item.is_all_day || !item.start_date || !item.end_date) return false
+    return key >= item.start_date && key <= item.end_date
+  })
+})
+
+const dayViewTimedSchedules = computed((): ScheduleListItem[] => {
+  if (viewMode.value !== 'day' || !selectedDayKey.value) return []
+  const key = selectedDayKey.value
+  return schedules.value.filter(
+    (item) =>
+      !item.is_all_day &&
+      item.start_datetime &&
+      item.end_datetime &&
+      item.start_datetime.slice(0, 10) === key,
+  )
+})
+
+const timedLayouts = computed((): TimedLayout[] => {
+  const items = dayViewTimedSchedules.value
+  const enriched = items
+    .map((item) => {
+      const start = new Date(item.start_datetime!)
+      const end = new Date(item.end_datetime!)
+      const startMin = start.getHours() * 60 + start.getMinutes() + start.getSeconds() / 60
+      let endMin = end.getHours() * 60 + end.getMinutes() + end.getSeconds() / 60
+      if (!Number.isFinite(startMin) || !Number.isFinite(endMin) || endMin <= startMin) {
+        endMin = startMin + 30
+      }
+      const dayMinutes = 24 * 60
+      const clampedStart = Math.max(0, Math.min(startMin, dayMinutes - 1))
+      const clampedEnd = Math.max(clampedStart + 15, Math.min(endMin, dayMinutes))
+      return { item, startMin: clampedStart, endMin: clampedEnd }
+    })
+    .sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin)
+
+  const laneEnds: number[] = []
+  const layouts: TimedLayout[] = []
+
+  for (const row of enriched) {
+    let lane = 0
+    while (lane < laneEnds.length && laneEnds[lane]! > row.startMin) {
+      lane += 1
+    }
+    if (lane === laneEnds.length) {
+      laneEnds.push(row.endMin)
+    } else {
+      laneEnds[lane] = row.endMin
+    }
+    layouts.push({
+      item: row.item,
+      topPct: (row.startMin / 1440) * 100,
+      heightPct: Math.max(((row.endMin - row.startMin) / 1440) * 100, 2),
+      lane,
+      laneCount: 1,
+    })
+  }
+
+  const laneCount = Math.max(1, laneEnds.length)
+  layouts.forEach((layout) => {
+    layout.laneCount = laneCount
+  })
+  return layouts
+})
+
+const loadDayData = async (dayKey: string): Promise<void> => {
+  isLoading.value = true
+  errorMessage.value = ''
+  dayViewHolidayName.value = ''
+  try {
+    const [holidayData, scheduleData] = await Promise.all([
+      api.getHolidays(dayKey, dayKey),
+      api.getSchedules(dayKey, dayKey),
+    ])
+    const holiday = holidayData.find((item) => item.date === dayKey)
+    dayViewHolidayName.value = holiday?.name || ''
+    schedules.value = scheduleData
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'データの取得に失敗しました。'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const openDayView = async (dateKey: string): Promise<void> => {
+  viewMode.value = 'day'
+  selectedDayKey.value = dateKey
+  const date = parseDate(dateKey)
+  currentMonth.value = new Date(date.getFullYear(), date.getMonth(), 1)
+  await loadDayData(dateKey)
+}
+
+const backToMonth = async (): Promise<void> => {
+  viewMode.value = 'month'
+  selectedDayKey.value = ''
+  dayViewHolidayName.value = ''
+  await loadMonthData()
+  await nextTick()
+  if (dayListEl.value) {
+    dayListEl.value.scrollTop = 0
+  }
+}
+
+const shiftDay = async (delta: number): Promise<void> => {
+  if (!selectedDayKey.value) return
+  const date = parseDate(selectedDayKey.value)
+  date.setDate(date.getDate() + delta)
+  const nextKey = toDateKey(date)
+  selectedDayKey.value = nextKey
+  currentMonth.value = new Date(date.getFullYear(), date.getMonth(), 1)
+  await loadDayData(nextKey)
+}
+
+const onMonthScheduleColClick = (event: MouseEvent, dateKey: string): void => {
+  if ((event.target as HTMLElement).closest('.schedule-chip')) return
+  openCreateDialog(dateKey)
+}
+
+const onAllDayAreaClick = (event: MouseEvent): void => {
+  if ((event.target as HTMLElement).closest('.day-view-all-day-block')) return
+  if (!selectedDayKey.value) return
+  openCreateDialog(selectedDayKey.value, { allDay: true })
+}
+
+const timeBlockStyle = (layout: TimedLayout): Record<string, string> => {
+  const lanes = layout.laneCount
+  const share = 100 / lanes
+  return {
+    top: `${layout.topPct}%`,
+    height: `${layout.heightPct}%`,
+    left: lanes > 1 ? `${share * layout.lane}%` : '4px',
+    width: lanes > 1 ? `calc(${share}% - 6px)` : 'calc(100% - 8px)',
+    backgroundColor: backgroundColor(layout.item),
+  }
+}
+
+const onDayTimelineClick = (event: MouseEvent): void => {
+  if (!selectedDayKey.value) return
+  if ((event.target as HTMLElement).closest('.day-view-time-block')) return
+  const element = event.currentTarget as HTMLElement
+  const rect = element.getBoundingClientRect()
+  const y = event.clientY - rect.top
+  const ratio = Math.min(1, Math.max(0, y / rect.height))
+  const totalMin = Math.floor((ratio * 1440) / 30) * 30
+  const startH = Math.floor(totalMin / 60)
+  const startM = totalMin % 60
+  let endTotal = totalMin + 60
+  if (endTotal > 1440) endTotal = 1440
+  const endH = Math.floor(endTotal / 60)
+  const endM = endTotal % 60
+  openCreateDialog(selectedDayKey.value, {
+    startTime: `${pad2(startH)}:${pad2(startM)}`,
+    endTime: `${pad2(endH)}:${pad2(endM)}`,
+  })
+}
+
 const toPayload = (): SchedulePayload => {
   if (!form.title.trim()) {
     throw new Error('タイトルを入力してください。')
@@ -234,7 +430,10 @@ const toPayload = (): SchedulePayload => {
   }
 }
 
-const openCreateDialog = (dateKey: string): void => {
+const openCreateDialog = (
+  dateKey: string,
+  options?: { startTime?: string; endTime?: string; allDay?: boolean },
+): void => {
   dialogMode.value = 'create'
   editingId.value = null
   formError.value = ''
@@ -242,11 +441,12 @@ const openCreateDialog = (dateKey: string): void => {
   form.title = ''
   form.scheduleType = '予定'
   form.categoryId = categories.value[0] ? String(categories.value[0].id) : ''
-  form.isAllDay = false
+  const allDay = Boolean(options?.allDay)
+  form.isAllDay = allDay
   form.startDate = dateKey
   form.endDate = dateKey
-  form.startTime = '09:00'
-  form.endTime = '10:00'
+  form.startTime = options?.startTime ?? '09:00'
+  form.endTime = options?.endTime ?? '10:00'
   form.isTodoCompleted = false
   form.location = ''
   form.details = ''
@@ -299,7 +499,11 @@ const saveSchedule = async (): Promise<void> => {
       await api.updateSchedule(editingId.value, payload)
     }
     showDialog.value = false
-    await loadMonthData()
+    if (viewMode.value === 'day' && selectedDayKey.value) {
+      await loadDayData(selectedDayKey.value)
+    } else {
+      await loadMonthData()
+    }
   } catch (error) {
     formError.value = error instanceof Error ? error.message : '保存に失敗しました。'
   }
@@ -316,7 +520,11 @@ const removeSchedule = async (): Promise<void> => {
   try {
     await api.deleteSchedule(editingId.value)
     showDialog.value = false
-    await loadMonthData()
+    if (viewMode.value === 'day' && selectedDayKey.value) {
+      await loadDayData(selectedDayKey.value)
+    } else {
+      await loadMonthData()
+    }
   } catch (error) {
     formError.value = error instanceof Error ? error.message : '削除に失敗しました。'
   }
@@ -396,30 +604,67 @@ onMounted(async () => {
           <img :src="configIcon" alt="" class="header-icon-circle header-icon-circle--sm" />
         </button>
       </div>
-      <div class="month-nav">
+      <div v-if="viewMode === 'month'" class="month-nav">
         <button type="button" class="nav-button" @click="shiftMonth(-1)">＜</button>
         <strong>{{ monthLabel }}</strong>
         <button type="button" class="nav-button" @click="shiftMonth(1)">＞</button>
       </div>
+      <div v-else class="day-nav">
+        <button type="button" class="nav-button" aria-label="前日" @click="shiftDay(-1)">＜</button>
+        <div
+          class="day-nav-center"
+          :class="{
+            'day-nav-center--today': dayViewIsToday,
+            'day-nav-center--sun': dayViewWeekdayIndex === 0,
+            'day-nav-center--sat': dayViewWeekdayIndex === 6,
+          }"
+        >
+          <div class="day-nav-date-line">
+            <strong class="day-nav-date">{{ dayViewDateLabel }}</strong>
+            <span class="day-nav-weekday">（{{ dayViewWeekdayLabel }}）</span>
+          </div>
+          <p v-if="dayViewHolidayName" class="day-nav-holiday">{{ dayViewHolidayName }}</p>
+        </div>
+        <button type="button" class="nav-button" aria-label="翌日" @click="shiftDay(1)">＞</button>
+      </div>
+      <button
+        v-if="viewMode === 'day'"
+        type="button"
+        class="day-back-month"
+        @click="backToMonth"
+      >
+        月表示に戻る
+      </button>
     </header>
 
     <p v-if="errorMessage" class="message error">{{ errorMessage }}</p>
     <p v-if="isLoading" class="message">読み込み中...</p>
 
-    <section ref="dayListEl" class="day-list">
+    <section v-if="viewMode === 'month'" ref="dayListEl" class="day-list">
       <article
         v-for="row in dayRows"
         :key="row.dateKey"
         class="day-row"
         :class="[rowClass(row), { 'day-row--today': row.isToday }]"
         :aria-current="row.isToday ? 'date' : undefined"
-        @click="openCreateDialog(row.dateKey)"
       >
-        <div class="date-col" :class="[scheduleClass(row), { 'date-col--today': row.isToday }]">
+        <div
+          class="date-col"
+          :class="[scheduleClass(row), { 'date-col--today': row.isToday }]"
+          role="button"
+          tabindex="0"
+          @click.stop="openDayView(row.dateKey)"
+          @keydown.enter.prevent="openDayView(row.dateKey)"
+          @keydown.space.prevent="openDayView(row.dateKey)"
+        >
           <span class="day-number">{{ row.day }}</span>
           <span class="weekday">({{ row.weekdayLabel }})</span>
         </div>
-        <div class="schedule-col" :class="{ 'schedule-col--today': row.isToday }">
+        <div
+          class="schedule-col"
+          :class="{ 'schedule-col--today': row.isToday }"
+          @click="onMonthScheduleColClick($event, row.dateKey)"
+        >
           <p v-if="row.holidayName" class="holiday-name">{{ row.holidayName }}</p>
           <div
             v-for="item in row.schedules"
@@ -438,6 +683,67 @@ onMounted(async () => {
           </div>
         </div>
       </article>
+    </section>
+
+    <section v-else class="day-view">
+      <div class="day-view-all-day">
+        <div class="day-view-gutter day-view-gutter--all-day">全日</div>
+        <div class="day-view-all-day-body" @click="onAllDayAreaClick">
+          <div
+            v-for="item in dayViewAllDaySchedules"
+            :key="item.id"
+            class="day-view-all-day-block"
+            :style="{ backgroundColor: backgroundColor(item) }"
+            @click.stop="openEditDialog(item)"
+          >
+            <template v-if="item.schedule_type === 'TODO'">
+              <span class="todo-box">{{ item.is_todo_completed ? '☑' : '□' }}</span>
+              <span :class="{ completed: item.is_todo_completed }">{{ item.title }}</span>
+            </template>
+            <template v-else>
+              <span>{{ item.title }}</span>
+            </template>
+          </div>
+        </div>
+      </div>
+      <div class="day-view-timeline">
+        <div class="day-view-hours">
+          <div
+            v-for="hour in hourTicks"
+            :key="hour"
+            class="day-view-hour-label"
+          >
+            {{ hour }}:00
+          </div>
+          <span class="day-view-hour-end" aria-hidden="true">24:00</span>
+        </div>
+        <div class="day-view-track-wrap">
+          <div class="day-view-track" @click="onDayTimelineClick">
+            <div
+              v-for="hour in hourTicks"
+              :key="'line-' + hour"
+              class="day-view-hour-row"
+            />
+            <div
+              v-for="layout in timedLayouts"
+              :key="layout.item.id"
+              class="day-view-time-block"
+              :style="timeBlockStyle(layout)"
+              @click.stop="openEditDialog(layout.item)"
+            >
+              <template v-if="layout.item.schedule_type === 'TODO'">
+                <span class="todo-box">{{ layout.item.is_todo_completed ? '☑' : '□' }}</span>
+                <span :class="{ completed: layout.item.is_todo_completed }">{{
+                  scheduleText(layout.item)
+                }}</span>
+              </template>
+              <template v-else>
+                <span>{{ scheduleText(layout.item) }}</span>
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
   </main>
 
