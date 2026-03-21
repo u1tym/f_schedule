@@ -2,9 +2,9 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { api } from './api'
 import type { ScheduleListItem, SchedulePayload, ScheduleType } from './types'
-import scheduleIcon from '../images/SCHEDULE.jpg'
-import portalIcon from '../images/PORTAL.jpg'
-import configIcon from '../images/CONFIG.jpg'
+import scheduleIcon from '../images/SCHEDULE.png'
+import portalIcon from '../images/PORTAL.png'
+import configIcon from '../images/CONFIG.png'
 
 interface DayRow {
   date: Date
@@ -364,18 +364,28 @@ onMounted(async () => {
   <main class="mobile-root">
     <header class="header">
       <div class="header-top">
-        <div class="title-wrap">
-          <img :src="scheduleIcon" alt="" class="header-icon" />
-          <strong>SCHEDULE</strong>
-        </div>
-        <div class="header-actions">
-          <button class="icon-button icon-only" type="button" aria-label="設定" @click="toggleView">
-            <img :src="configIcon" alt="" class="header-icon" />
+        <div class="header-leading">
+          <button
+            class="header-round-btn header-round-btn--lg"
+            type="button"
+            aria-label="PORTALへ移動"
+            @click="openPortal"
+          >
+            <img :src="portalIcon" alt="" class="header-icon-circle header-icon-circle--lg" />
           </button>
-          <button class="icon-button icon-only" type="button" aria-label="PORTALへ移動" @click="openPortal">
-            <img :src="portalIcon" alt="" class="header-icon" />
-          </button>
+          <div class="header-icon-frame header-icon-frame--lg" aria-hidden="true">
+            <img :src="scheduleIcon" alt="" class="header-icon-circle header-icon-circle--lg" />
+          </div>
+          <strong class="header-title">SCHEDULE</strong>
         </div>
+        <button
+          class="header-round-btn header-round-btn--sm"
+          type="button"
+          aria-label="設定"
+          @click="toggleView"
+        >
+          <img :src="configIcon" alt="" class="header-icon-circle header-icon-circle--sm" />
+        </button>
       </div>
       <div class="month-nav">
         <button type="button" class="nav-button" @click="shiftMonth(-1)">＜</button>
