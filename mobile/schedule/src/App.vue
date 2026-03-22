@@ -9,7 +9,13 @@ import {
   readWeekStartMode,
   type WeekStartMode,
 } from './monthPreferences'
-import type { ScheduleListItem, SchedulePayload, ScheduleType } from './types'
+import type {
+  ScheduleDetail,
+  ScheduleListItem,
+  SchedulePayload,
+  ScheduleType,
+  TodoAlertItem,
+} from './types'
 import scheduleIcon from '../images/SCHEDULE.png'
 import portalIcon from '../images/PORTAL.png'
 import configIcon from '../images/CONFIG.png'
@@ -90,6 +96,11 @@ const dialogMode = ref<DialogMode>('create')
 const editingId = ref<number | null>(null)
 const formError = ref('')
 const selectedDateForCreate = ref('')
+
+const todoAlerts = ref<TodoAlertItem[]>([])
+const showTodoAlertPopup = ref(false)
+const todoAlertUpdatingId = ref<number | null>(null)
+const todoAlertError = ref('')
 
 const form = reactive<FormState>({
   title: '',
@@ -364,10 +375,13 @@ const timedLayouts = computed((): TimedLayout[] => {
   return layouts
 })
 
-const loadDayData = async (dayKey: string): Promise<void> => {
-  isLoading.value = true
-  errorMessage.value = ''
-  dayViewHolidayName.value = ''
+const loadDayData = async (dayKey: string, options?: { silent?: boolean }): Promise<void> => {
+  const silent = Boolean(options?.silent)
+  if (!silent) {
+    isLoading.value = true
+    errorMessage.value = ''
+    dayViewHolidayName.value = ''
+  }
   try {
     const [holidayData, scheduleData] = await Promise.all([
       api.getHolidays(dayKey, dayKey),
@@ -377,9 +391,13 @@ const loadDayData = async (dayKey: string): Promise<void> => {
     dayViewHolidayName.value = holiday?.name || ''
     schedules.value = scheduleData
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'データの取得に失敗しました。'
+    if (!silent) {
+      errorMessage.value = error instanceof Error ? error.message : 'データの取得に失敗しました。'
+    }
   } finally {
-    isLoading.value = false
+    if (!silent) {
+      isLoading.value = false
+    }
   }
 }
 
@@ -637,11 +655,14 @@ const setWeekStartsOn = (mode: WeekStartMode): void => {
   persistWeekStartMode(mode)
 }
 
-const loadMonthData = async (): Promise<void> => {
+const loadMonthData = async (options?: { silent?: boolean }): Promise<void> => {
+  const silent = Boolean(options?.silent)
   const fromDate = toDateKey(monthRange.value.start)
   const toDate = toDateKey(monthRange.value.end)
-  isLoading.value = true
-  errorMessage.value = ''
+  if (!silent) {
+    isLoading.value = true
+    errorMessage.value = ''
+  }
   try {
     const [categoryData, holidayData, scheduleData] = await Promise.all([
       api.getActivityCategories(),
@@ -655,14 +676,130 @@ const loadMonthData = async (): Promise<void> => {
     }, {})
     schedules.value = scheduleData
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'データの取得に失敗しました。'
+    if (!silent) {
+      errorMessage.value = error instanceof Error ? error.message : 'データの取得に失敗しました。'
+    }
   } finally {
-    isLoading.value = false
+    if (!silent) {
+      isLoading.value = false
+    }
+  }
+}
+
+const detailToPayloadForUpdate = (
+  detail: ScheduleDetail,
+  isTodoCompleted: boolean,
+): SchedulePayload => {
+  const location = (detail.location || '').trim()
+  const details = (detail.details || '').trim()
+
+  if (detail.is_all_day && detail.start_date && detail.end_date) {
+    const start = parseDate(detail.start_date)
+    const end = parseDate(detail.end_date)
+    if (end < start) {
+      throw new Error('終了日は開始日以降を指定してください。')
+    }
+    const dayCount = Math.floor((end.getTime() - start.getTime()) / 86400000) + 1
+    return {
+      title: detail.title.trim(),
+      start_datetime: toDateTimeString(detail.start_date),
+      duration: dayCount,
+      is_all_day: true,
+      activity_category_id: detail.activity_category_id,
+      schedule_type: detail.schedule_type,
+      location,
+      details,
+      is_todo_completed: detail.schedule_type === 'TODO' ? isTodoCompleted : false,
+    }
+  }
+
+  if (!detail.start_datetime || !detail.end_datetime) {
+    throw new Error('スケジュール形式が不正です。')
+  }
+
+  const startDateTime = new Date(detail.start_datetime)
+  const endDateTime = new Date(detail.end_datetime)
+  if (Number.isNaN(startDateTime.getTime()) || Number.isNaN(endDateTime.getTime())) {
+    throw new Error('日時が不正です。')
+  }
+  if (endDateTime <= startDateTime) {
+    throw new Error('終了時刻は開始時刻より後にしてください。')
+  }
+  const minutes = Math.max(
+    1,
+    Math.floor((endDateTime.getTime() - startDateTime.getTime()) / 60000),
+  )
+  const datePart = detail.start_datetime.slice(0, 10)
+  const timePart = detail.start_datetime.slice(11, 16)
+  return {
+    title: detail.title.trim(),
+    start_datetime: toDateTimeString(datePart, timePart),
+    duration: minutes,
+    is_all_day: false,
+    activity_category_id: detail.activity_category_id,
+    schedule_type: detail.schedule_type,
+    location,
+    details,
+    is_todo_completed: detail.schedule_type === 'TODO' ? isTodoCompleted : false,
+  }
+}
+
+const todoAlertWhenLabel = (item: TodoAlertItem): string => {
+  if (item.is_all_day && item.start_date) {
+    const tail = item.end_date && item.end_date !== item.start_date ? ` ～ ${item.end_date}` : ''
+    return `終日 ${item.start_date}${tail}`
+  }
+  if (item.start_datetime && item.end_datetime) {
+    return `${formatClock(item.start_datetime)}～${formatClock(item.end_datetime)}`
+  }
+  return ''
+}
+
+const onTodoAlertCheck = async (item: TodoAlertItem, event: Event): Promise<void> => {
+  const checkbox = event.target as HTMLInputElement
+  if (!checkbox.checked) {
+    return
+  }
+  todoAlertError.value = ''
+  todoAlertUpdatingId.value = item.id
+  try {
+    const detail = await api.getSchedule(item.id)
+    const payload = detailToPayloadForUpdate(detail, true)
+    await api.updateSchedule(item.id, payload)
+    const row = todoAlerts.value.find((rowItem) => rowItem.id === item.id)
+    if (row) {
+      row.is_todo_completed = true
+    }
+    if (viewMode.value === 'day' && selectedDayKey.value) {
+      await loadDayData(selectedDayKey.value, { silent: true })
+    } else {
+      await loadMonthData({ silent: true })
+    }
+  } catch (error) {
+    checkbox.checked = false
+    todoAlertError.value =
+      error instanceof Error ? error.message : '完了への更新に失敗しました。'
+  } finally {
+    todoAlertUpdatingId.value = null
+  }
+}
+
+const fetchTodoAlertsOnStartup = async (): Promise<void> => {
+  try {
+    const refDate = toDateKey(new Date())
+    const items = await api.getTodoAlerts(refDate)
+    if (items.length > 0) {
+      todoAlerts.value = items
+      showTodoAlertPopup.value = true
+    }
+  } catch {
+    // 初回表示を妨げない（API 未対応時などは無視）
   }
 }
 
 onMounted(async () => {
   await loadMonthData()
+  await fetchTodoAlertsOnStartup()
 })
 </script>
 
@@ -887,6 +1024,52 @@ onMounted(async () => {
       </div>
     </section>
   </main>
+
+  <div
+    v-if="showTodoAlertPopup"
+    class="todo-alert-backdrop"
+    @click.self="showTodoAlertPopup = false"
+  >
+    <section
+      class="todo-alert-card"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="todo-alert-title"
+      @click.stop
+    >
+      <h2 id="todo-alert-title" class="todo-alert-title-h">注意喚起 TODO</h2>
+      <p class="todo-alert-lead">
+        今日（{{ toDateKey(new Date()) }}）を基準とした注意喚起対象の TODO です。
+      </p>
+      <p v-if="todoAlertError" class="message error">{{ todoAlertError }}</p>
+      <ul class="todo-alert-list">
+        <li v-for="item in todoAlerts" :key="item.id" class="todo-alert-li">
+          <div v-if="item.is_todo_completed" class="todo-alert-row todo-alert-row--done">
+            <span class="todo-alert-check-spacer" aria-hidden="true" />
+            <div class="todo-alert-body">
+              <span class="todo-alert-item-title todo-alert-item-title--done">{{ item.title }}</span>
+              <p v-if="todoAlertWhenLabel(item)" class="todo-alert-meta">{{ todoAlertWhenLabel(item) }}</p>
+            </div>
+          </div>
+          <label v-else class="todo-alert-row">
+            <input
+              class="todo-alert-checkbox"
+              type="checkbox"
+              :disabled="todoAlertUpdatingId === item.id"
+              @change="onTodoAlertCheck(item, $event)"
+            />
+            <div class="todo-alert-body">
+              <span class="todo-alert-item-title">{{ item.title }}</span>
+              <p v-if="todoAlertWhenLabel(item)" class="todo-alert-meta">{{ todoAlertWhenLabel(item) }}</p>
+            </div>
+          </label>
+        </li>
+      </ul>
+      <button type="button" class="todo-alert-close" @click="showTodoAlertPopup = false">
+        閉じる
+      </button>
+    </section>
+  </div>
 
   <div
     v-if="showMonthSettings"

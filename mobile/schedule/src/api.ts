@@ -5,6 +5,7 @@ import type {
   ScheduleDetail,
   ScheduleListItem,
   SchedulePayload,
+  TodoAlertItem,
 } from './types'
 
 const apiBase = getApiBaseUrl()
@@ -61,6 +62,11 @@ export const api = {
   getSchedules(fromDate: string, toDate: string): Promise<ScheduleListItem[]> {
     const query = toQueryString({ from_date: fromDate, to_date: toDate })
     return request<ScheduleListItem[]>(`/schedules?${query}`)
+  },
+
+  getTodoAlerts(refDate: string): Promise<TodoAlertItem[]> {
+    const query = toQueryString({ ref_date: refDate })
+    return request<TodoAlertItem[]>(`/schedules/todo-alerts?${query}`)
   },
 
   getSchedule(id: number): Promise<ScheduleDetail> {

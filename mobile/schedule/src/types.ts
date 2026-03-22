@@ -42,3 +42,20 @@ export interface ScheduleDetail extends ScheduleListItem {
   location?: string
   details?: string
 }
+
+/** GET /schedules/todo-alerts の1件（仕様に沿った最小項目＋APIが返す追加項目用の任意項目） */
+export interface TodoAlertItem {
+  id: number
+  title: string
+  schedule_type: 'TODO'
+  is_all_day: boolean
+  start_date?: string
+  end_date?: string
+  start_datetime?: string
+  end_datetime?: string
+  is_todo_completed?: boolean
+  location?: string
+  details?: string
+  activity_category_id?: number
+  activity_category_name?: string
+}
