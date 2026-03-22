@@ -99,7 +99,8 @@ const selectedDateForCreate = ref('')
 
 const todoAlerts = ref<TodoAlertItem[]>([])
 const showTodoAlertPopup = ref(false)
-const todoAlertUpdatingId = ref<number | null>(null)
+const todoAlertSelectedIds = ref<number[]>([])
+const todoAlertUpdatingBulk = ref(false)
 const todoAlertError = ref('')
 
 const form = reactive<FormState>({
@@ -755,33 +756,57 @@ const todoAlertWhenLabel = (item: TodoAlertItem): string => {
   return ''
 }
 
-const onTodoAlertCheck = async (item: TodoAlertItem, event: Event): Promise<void> => {
+const onTodoAlertSelectionChange = (id: number, event: Event): void => {
   const checkbox = event.target as HTMLInputElement
-  if (!checkbox.checked) {
+  if (checkbox.checked) {
+    if (!todoAlertSelectedIds.value.includes(id)) {
+      todoAlertSelectedIds.value = [...todoAlertSelectedIds.value, id]
+    }
+  } else {
+    todoAlertSelectedIds.value = todoAlertSelectedIds.value.filter((x) => x !== id)
+  }
+}
+
+const applyTodoAlertUpdates = async (): Promise<void> => {
+  const ids = [...todoAlertSelectedIds.value]
+  if (ids.length === 0) {
     return
   }
   todoAlertError.value = ''
-  todoAlertUpdatingId.value = item.id
+  todoAlertUpdatingBulk.value = true
   try {
-    const detail = await api.getSchedule(item.id)
-    const payload = detailToPayloadForUpdate(detail, true)
-    await api.updateSchedule(item.id, payload)
-    const row = todoAlerts.value.find((rowItem) => rowItem.id === item.id)
-    if (row) {
+    for (const id of ids) {
+      const row = todoAlerts.value.find((item) => item.id === id)
+      if (!row || row.is_todo_completed) {
+        continue
+      }
+      const detail = await api.getSchedule(id)
+      const payload = detailToPayloadForUpdate(detail, true)
+      await api.updateSchedule(id, payload)
       row.is_todo_completed = true
     }
+    todoAlertSelectedIds.value = []
     if (viewMode.value === 'day' && selectedDayKey.value) {
       await loadDayData(selectedDayKey.value, { silent: true })
     } else {
       await loadMonthData({ silent: true })
     }
   } catch (error) {
-    checkbox.checked = false
     todoAlertError.value =
       error instanceof Error ? error.message : '完了への更新に失敗しました。'
+    todoAlertSelectedIds.value = todoAlertSelectedIds.value.filter((id) => {
+      const row = todoAlerts.value.find((item) => item.id === id)
+      return Boolean(row && !row.is_todo_completed)
+    })
   } finally {
-    todoAlertUpdatingId.value = null
+    todoAlertUpdatingBulk.value = false
   }
+}
+
+const closeTodoAlertPopup = (): void => {
+  showTodoAlertPopup.value = false
+  todoAlertSelectedIds.value = []
+  todoAlertError.value = ''
 }
 
 const fetchTodoAlertsOnStartup = async (): Promise<void> => {
@@ -790,6 +815,7 @@ const fetchTodoAlertsOnStartup = async (): Promise<void> => {
     const items = await api.getTodoAlerts(refDate)
     if (items.length > 0) {
       todoAlerts.value = items
+      todoAlertSelectedIds.value = []
       showTodoAlertPopup.value = true
     }
   } catch {
@@ -1028,7 +1054,7 @@ onMounted(async () => {
   <div
     v-if="showTodoAlertPopup"
     class="todo-alert-backdrop"
-    @click.self="showTodoAlertPopup = false"
+    @click.self="closeTodoAlertPopup"
   >
     <section
       class="todo-alert-card"
@@ -1055,8 +1081,9 @@ onMounted(async () => {
             <input
               class="todo-alert-checkbox"
               type="checkbox"
-              :disabled="todoAlertUpdatingId === item.id"
-              @change="onTodoAlertCheck(item, $event)"
+              :checked="todoAlertSelectedIds.includes(item.id)"
+              :disabled="todoAlertUpdatingBulk"
+              @change="onTodoAlertSelectionChange(item.id, $event)"
             />
             <div class="todo-alert-body">
               <span class="todo-alert-item-title">{{ item.title }}</span>
@@ -1065,9 +1092,24 @@ onMounted(async () => {
           </label>
         </li>
       </ul>
-      <button type="button" class="todo-alert-close" @click="showTodoAlertPopup = false">
-        閉じる
-      </button>
+      <div class="todo-alert-actions">
+        <button
+          type="button"
+          class="todo-alert-update"
+          :disabled="todoAlertSelectedIds.length === 0 || todoAlertUpdatingBulk"
+          @click="applyTodoAlertUpdates"
+        >
+          {{ todoAlertUpdatingBulk ? '更新中…' : '更新' }}
+        </button>
+        <button
+          type="button"
+          class="todo-alert-close"
+          :disabled="todoAlertUpdatingBulk"
+          @click="closeTodoAlertPopup"
+        >
+          閉じる
+        </button>
+      </div>
     </section>
   </div>
 

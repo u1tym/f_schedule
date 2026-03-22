@@ -37,7 +37,7 @@ APIの接続先は `src/config.ts` で管理しています。
 初回の月データ読み込み後、**当日**を `ref_date` にして `GET /schedules/todo-alerts?ref_date=YYYY-MM-DD` を呼び出します。
 
 - 1件以上ある場合のみモーダルで一覧表示します（完了済みは取り消し線）。
-- 未完了はチェックで `GET /schedules/{id}` → `PUT /schedules/{id}`（`is_todo_completed: true`）により完了更新します。
+- 未完了はチェックで選択し、**「更新」** クリック時に `GET /schedules/{id}` → `PUT /schedules/{id}`（`is_todo_completed: true`）で完了更新します。
 - API エラー時は画面全体を止めず、ポップアップは出しません（バックエンド未対応時のフォールバック）。
 
 詳細はリポジトリ直下の `AI_SPECIFICATION.md` の **7. GET /schedules/todo-alerts** を参照してください。
