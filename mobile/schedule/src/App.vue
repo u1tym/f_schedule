@@ -2,13 +2,18 @@
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { api } from './api'
 import {
+  displayModeToMonthlyType,
+  fetchAppSettings,
+  mapMonthlyTypeToDisplay,
+  mapWeeklyStartToDisplay,
   type MonthDisplayMode,
-  persistMonthDisplayMode,
-  persistWeekStartMode,
-  readMonthDisplayMode,
-  readWeekStartMode,
+  putAppSettings,
+  type RawAppSettings,
+  SETTING_KEY_MONTHLY_TYPE,
+  SETTING_KEY_WEEKLY_START,
   type WeekStartMode,
-} from './monthPreferences'
+  weekStartModeToWeeklyStart,
+} from './appSettings'
 import type {
   ScheduleDetail,
   ScheduleListItem,
@@ -87,9 +92,12 @@ const dayViewHolidayName = ref('')
 const dayListEl = ref<HTMLElement | null>(null)
 const hourTicks = Array.from({ length: 24 }, (_, index) => index)
 
-const monthDisplayMode = ref<MonthDisplayMode>(readMonthDisplayMode())
-const weekStartsOn = ref<WeekStartMode>(readWeekStartMode())
+const monthDisplayMode = ref<MonthDisplayMode>('list')
+const weekStartsOn = ref<WeekStartMode>('sunday')
+const rawAppSettings = ref<RawAppSettings>({})
 const showMonthSettings = ref(false)
+const monthSettingsError = ref('')
+const monthSettingsSaving = ref(false)
 
 const showDialog = ref(false)
 const dialogMode = ref<DialogMode>('create')
@@ -644,16 +652,62 @@ const openPortal = (): void => {
 
 const toggleMonthSettings = (): void => {
   showMonthSettings.value = !showMonthSettings.value
+  if (showMonthSettings.value) {
+    monthSettingsError.value = ''
+  }
 }
 
-const setMonthDisplayMode = (mode: MonthDisplayMode): void => {
+const loadAppSettings = async (): Promise<void> => {
+  try {
+    const raw = await fetchAppSettings()
+    rawAppSettings.value = { ...raw }
+    monthDisplayMode.value = mapMonthlyTypeToDisplay(raw)
+    weekStartsOn.value = mapWeeklyStartToDisplay(raw)
+  } catch {
+    rawAppSettings.value = {}
+    monthDisplayMode.value = 'list'
+    weekStartsOn.value = 'sunday'
+  }
+}
+
+const setMonthDisplayMode = async (mode: MonthDisplayMode): Promise<void> => {
+  const previous = monthDisplayMode.value
+  monthSettingsError.value = ''
   monthDisplayMode.value = mode
-  persistMonthDisplayMode(mode)
+  monthSettingsSaving.value = true
+  try {
+    await putAppSettings({ [SETTING_KEY_MONTHLY_TYPE]: displayModeToMonthlyType(mode) })
+    rawAppSettings.value = {
+      ...rawAppSettings.value,
+      [SETTING_KEY_MONTHLY_TYPE]: displayModeToMonthlyType(mode),
+    }
+  } catch (error) {
+    monthDisplayMode.value = previous
+    monthSettingsError.value =
+      error instanceof Error ? error.message : '設定の保存に失敗しました。'
+  } finally {
+    monthSettingsSaving.value = false
+  }
 }
 
-const setWeekStartsOn = (mode: WeekStartMode): void => {
+const setWeekStartsOn = async (mode: WeekStartMode): Promise<void> => {
+  const previous = weekStartsOn.value
+  monthSettingsError.value = ''
   weekStartsOn.value = mode
-  persistWeekStartMode(mode)
+  monthSettingsSaving.value = true
+  try {
+    await putAppSettings({ [SETTING_KEY_WEEKLY_START]: weekStartModeToWeeklyStart(mode) })
+    rawAppSettings.value = {
+      ...rawAppSettings.value,
+      [SETTING_KEY_WEEKLY_START]: weekStartModeToWeeklyStart(mode),
+    }
+  } catch (error) {
+    weekStartsOn.value = previous
+    monthSettingsError.value =
+      error instanceof Error ? error.message : '設定の保存に失敗しました。'
+  } finally {
+    monthSettingsSaving.value = false
+  }
 }
 
 const loadMonthData = async (options?: { silent?: boolean }): Promise<void> => {
@@ -824,7 +878,7 @@ const fetchTodoAlertsOnStartup = async (): Promise<void> => {
 }
 
 onMounted(async () => {
-  await loadMonthData()
+  await Promise.all([loadMonthData(), loadAppSettings()])
   await fetchTodoAlertsOnStartup()
 })
 </script>
@@ -1126,7 +1180,8 @@ onMounted(async () => {
       @click.stop
     >
       <h2 id="month-settings-title" class="settings-title">月表示の設定</h2>
-      <fieldset class="settings-fieldset">
+      <p v-if="monthSettingsError" class="message error">{{ monthSettingsError }}</p>
+      <fieldset class="settings-fieldset" :disabled="monthSettingsSaving">
         <legend class="settings-legend">表示の種類</legend>
         <label class="settings-radio">
           <input
@@ -1149,7 +1204,11 @@ onMounted(async () => {
           カレンダー表示
         </label>
       </fieldset>
-      <fieldset v-if="monthDisplayMode === 'calendar'" class="settings-fieldset">
+      <fieldset
+        v-if="monthDisplayMode === 'calendar'"
+        class="settings-fieldset"
+        :disabled="monthSettingsSaving"
+      >
         <legend class="settings-legend">週の始まり</legend>
         <label class="settings-radio">
           <input

@@ -12,25 +12,31 @@ npm run dev
 
 ## API設定はどこで行うか
 
-APIの接続先は `src/config.ts` で管理しています。
+接続先は `src/config.ts` で管理しています。
 
-- `apiOrigin`: 本番時に利用するAPIのオリジン
-- `apiDevPrefix`: 開発時に利用するプレフィックス（既定は `/api`）
+### スケジュール API（予定・TODO）
 
-現在の実装は以下の動きです。
+- `apiOrigin` / `VITE_SCHEDULE_API_ORIGIN`: 本番のオリジン
+- `apiDevPrefix`: 開発時プレフィックス（既定 `/api`）
 
-- **開発時 (`npm run dev`)**  
-  `src/config.ts` の `getApiBaseUrl()` が `/api` を返します。  
-  `vite.config.ts` の `server.proxy` が `/api` を `http://127.0.0.1:8000` に転送します。
-- **本番ビルド時 (`npm run build`)**  
-  `getApiBaseUrl()` が `apiOrigin` を返します。
+- **開発時**  
+  `getApiBaseUrl()` → `/api`。`vite.config.ts` の `server.proxy` が `http://127.0.0.1:8000` に転送します。
+- **本番**  
+  `getApiBaseUrl()` → `VITE_SCHEDULE_API_ORIGIN`（未設定時は `DEFAULT_API_ORIGIN`）。
 
-### API接続先を変更する方法
+### 設定 API（月表示・週始まり）
 
-1. 本番APIの接続先を変える  
-   `src/config.ts` の `DEFAULT_API_ORIGIN` を変更するか、`VITE_API_ORIGIN` 環境変数を設定します。
-2. 開発時の転送先を変える  
-   `vite.config.ts` の `server.proxy['/api'].target` を変更します。
+- `GET /settings` / `PUT /settings`（仕様はリポジトリ直下の **`API_CONFIG.md`** を参照）
+- 本番の基点: **`VITE_CONFIG_API_ORIGIN`**（未設定時は `DEFAULT_CONFIG_API_ORIGIN` = `http://127.0.0.1:8000`）
+- **開発時**は `getConfigApiBaseUrl()` も **`/api`** を返します（同一バックエンド上の `/settings` をプロキシ経由で呼ぶ想定）。
+
+月表示の一覧／カレンダー・週の始まりは **Cookie ではなく** 起動時に `GET /settings` で取得し、歯車から変更したときに `PUT /settings` で保存します（キー名は API 仕様どおり `calender-monthly-type` / `calender-weekly-start`）。
+
+### 接続先を変えるには
+
+1. 本番のスケジュール API: `VITE_SCHEDULE_API_ORIGIN` または `src/config.ts` の `DEFAULT_API_ORIGIN`
+2. 本番の設定 API: **`VITE_CONFIG_API_ORIGIN`** または `DEFAULT_CONFIG_API_ORIGIN`
+3. 開発時のプロキシ先: `vite.config.ts` の `server.proxy['/api'].target`
 
 ## 注意喚起 TODO（初回表示）
 
