@@ -647,7 +647,7 @@ const shiftMonth = async (delta: number): Promise<void> => {
 }
 
 const openPortal = (): void => {
-  window.location.href = '../m.html'
+  window.location.href = '/mobile/login/#/menu'
 }
 
 const toggleMonthSettings = (): void => {
