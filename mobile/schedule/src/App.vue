@@ -128,6 +128,7 @@ const form = reactive<FormState>({
 
 const weekdays = ['日', '月', '火', '水', '木', '金', '土']
 const categoryColors = ['#e0f2fe', '#dcfce7', '#fef3c7', '#fce7f3', '#ede9fe', '#ffedd5', '#ccfbf1']
+const categoryDotColors = ['#0284c7', '#16a34a', '#d97706', '#db2777', '#7c3aed', '#ea580c', '#0f766e']
 
 const monthLabel = computed(() => {
   const year = currentMonth.value.getFullYear()
@@ -173,6 +174,14 @@ const categoryColorMap = computed(() => {
   const map = new Map<number, string>()
   categories.value.forEach((category, index) => {
     map.set(category.id, categoryColors[index % categoryColors.length])
+  })
+  return map
+})
+
+const categoryDotColorMap = computed(() => {
+  const map = new Map<number, string>()
+  categories.value.forEach((category, index) => {
+    map.set(category.id, categoryDotColors[index % categoryDotColors.length])
   })
   return map
 })
@@ -301,7 +310,7 @@ const backgroundColor = (item: ScheduleListItem): string => {
 const calendarDotColorsForDay = (dateKey: string): string[] => {
   const colors = new Set<string>()
   schedulesForDay(dateKey).forEach((item) => {
-    colors.add(backgroundColor(item))
+    colors.add(categoryDotColorMap.value.get(item.activity_category_id) || '#2563eb')
   })
   return Array.from(colors)
 }
