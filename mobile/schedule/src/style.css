@@ -267,7 +267,19 @@ body {
 }
 
 .month-cal-detail-head {
+  width: 100%;
+  text-align: left;
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+  border-radius: 8px;
+  padding: 6px 8px;
   margin-bottom: 8px;
+  cursor: pointer;
+}
+
+.month-cal-detail-head:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
 }
 
 .month-cal-detail-title {

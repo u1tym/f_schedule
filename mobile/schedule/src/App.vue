@@ -1094,14 +1094,18 @@ onMounted(async () => {
         </template>
       </div>
       <section v-if="calendarSelectedDayKey" class="month-cal-detail">
-        <header class="month-cal-detail-head">
+        <button
+          type="button"
+          class="month-cal-detail-head"
+          @click="openCreateDialog(calendarSelectedDayKey)"
+        >
           <h3 class="month-cal-detail-title">
             {{ calendarSelectedDateLabel }}（{{ calendarSelectedWeekdayLabel }}）
           </h3>
           <p v-if="calendarSelectedHolidayName" class="month-cal-detail-holiday">
             {{ calendarSelectedHolidayName }}
           </p>
-        </header>
+        </button>
         <div v-if="calendarSelectedSchedules.length === 0" class="month-cal-detail-empty">
           予定・TODOはありません
         </div>
