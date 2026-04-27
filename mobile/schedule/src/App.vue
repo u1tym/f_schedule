@@ -88,6 +88,7 @@ const errorMessage = ref('')
 
 const viewMode = ref<ViewMode>('month')
 const selectedDayKey = ref('')
+const calendarSelectedDayKey = ref('')
 const dayViewHolidayName = ref('')
 
 const dayListEl = ref<HTMLElement | null>(null)
@@ -335,6 +336,27 @@ const dayViewIsToday = computed(
 const dayViewWeekdayIndex = computed(() => {
   if (!selectedDayKey.value) return -1
   return parseDate(selectedDayKey.value).getDay()
+})
+
+const calendarSelectedDateLabel = computed(() => {
+  if (!calendarSelectedDayKey.value) return ''
+  const date = parseDate(calendarSelectedDayKey.value)
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`
+})
+
+const calendarSelectedWeekdayLabel = computed(() => {
+  if (!calendarSelectedDayKey.value) return ''
+  return weekdays[parseDate(calendarSelectedDayKey.value).getDay()]
+})
+
+const calendarSelectedHolidayName = computed(() => {
+  if (!calendarSelectedDayKey.value) return ''
+  return holidays.value[calendarSelectedDayKey.value] || ''
+})
+
+const calendarSelectedSchedules = computed((): ScheduleListItem[] => {
+  if (!calendarSelectedDayKey.value) return []
+  return schedulesForDay(calendarSelectedDayKey.value)
 })
 
 const dayViewAllDaySchedules = computed((): ScheduleListItem[] => {
@@ -660,11 +682,16 @@ const removeSchedule = async (): Promise<void> => {
 const shiftMonth = async (delta: number): Promise<void> => {
   const date = currentMonth.value
   currentMonth.value = new Date(date.getFullYear(), date.getMonth() + delta, 1)
+  calendarSelectedDayKey.value = ''
   await loadMonthData()
   await nextTick()
   if (monthDisplayMode.value === 'list' && dayListEl.value) {
     dayListEl.value.scrollTop = 0
   }
+}
+
+const onCalendarCellClick = (dateKey: string): void => {
+  calendarSelectedDayKey.value = dateKey
 }
 
 const openPortal = (): void => {
@@ -1043,6 +1070,7 @@ onMounted(async () => {
             class="month-cal-cell"
             :class="{
               'month-cal-cell--today': cell.isToday,
+              'month-cal-cell--selected': calendarSelectedDayKey === cell.dateKey,
               'month-cal-cell--sun': cell.weekday === 0 && !cell.isHoliday,
               'month-cal-cell--sat': cell.weekday === 6,
               'month-cal-cell--holiday': cell.isHoliday,
@@ -1050,7 +1078,7 @@ onMounted(async () => {
             :aria-label="
               cell.hasSchedule ? `${cell.day}日、予定あり` : `${cell.day}日、予定なし`
             "
-            @click="openDayView(cell.dateKey)"
+            @click="onCalendarCellClick(cell.dateKey)"
           >
             <span class="month-cal-day">{{ cell.day }}</span>
             <span class="month-cal-dots" aria-hidden="true">
@@ -1065,6 +1093,34 @@ onMounted(async () => {
           <div v-else class="month-cal-cell month-cal-cell--pad" aria-hidden="true" />
         </template>
       </div>
+      <section v-if="calendarSelectedDayKey" class="month-cal-detail">
+        <header class="month-cal-detail-head">
+          <h3 class="month-cal-detail-title">
+            {{ calendarSelectedDateLabel }}（{{ calendarSelectedWeekdayLabel }}）
+          </h3>
+          <p v-if="calendarSelectedHolidayName" class="month-cal-detail-holiday">
+            {{ calendarSelectedHolidayName }}
+          </p>
+        </header>
+        <div v-if="calendarSelectedSchedules.length === 0" class="month-cal-detail-empty">
+          予定・TODOはありません
+        </div>
+        <div
+          v-for="item in calendarSelectedSchedules"
+          :key="`calendar-detail-${item.id}`"
+          class="month-cal-detail-item schedule-chip"
+          :style="{ backgroundColor: backgroundColor(item) }"
+          @click.stop="openEditDialog(item)"
+        >
+          <template v-if="item.schedule_type === 'TODO'">
+            <span class="todo-box">{{ item.is_todo_completed ? '☑' : '□' }}</span>
+            <span :class="{ completed: item.is_todo_completed }">{{ scheduleText(item) }}</span>
+          </template>
+          <template v-else>
+            <span>{{ scheduleText(item) }}</span>
+          </template>
+        </div>
+      </section>
     </section>
 
     <section v-else class="day-view">

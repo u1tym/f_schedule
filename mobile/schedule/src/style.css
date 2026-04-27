@@ -215,6 +215,11 @@ body {
   background: #eff6ff;
 }
 
+.month-cal-cell--selected {
+  border-color: #1d4ed8;
+  box-shadow: inset 0 0 0 1px rgba(29, 78, 216, 0.5);
+}
+
 .month-cal-day {
   font-size: 13px;
   font-weight: 700;
@@ -251,6 +256,40 @@ body {
   border-radius: 50%;
   flex-shrink: 0;
   box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.12);
+}
+
+.month-cal-detail {
+  margin-top: 10px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 8px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.month-cal-detail-head {
+  margin-bottom: 8px;
+}
+
+.month-cal-detail-title {
+  margin: 0;
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.month-cal-detail-holiday {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #dc2626;
+}
+
+.month-cal-detail-empty {
+  font-size: 13px;
+  color: #64748b;
+  padding: 4px 2px;
+}
+
+.month-cal-detail-item {
+  margin-bottom: 6px;
 }
 
 /* 月表示の設定（Cookie と連動） */
