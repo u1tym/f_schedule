@@ -56,6 +56,7 @@ interface CalendarCell {
   day: number | null
   inMonth: boolean
   hasSchedule: boolean
+  categoryDotColors: string[]
   isToday: boolean
   isHoliday: boolean
   holidayName: string
@@ -234,6 +235,7 @@ const calendarCells = computed((): CalendarCell[] => {
         day: null,
         inMonth: false,
         hasSchedule: false,
+        categoryDotColors: [],
         isToday: false,
         isHoliday: false,
         holidayName: '',
@@ -245,12 +247,14 @@ const calendarCells = computed((): CalendarCell[] => {
     const dateKey = toDateKey(date)
     const weekday = date.getDay()
     const holidayName = holidays.value[dateKey] || ''
+    const categoryDotColors = calendarDotColorsForDay(dateKey)
     cells.push({
       key: dateKey,
       dateKey,
       day: dayNum,
       inMonth: true,
-      hasSchedule: schedulesForDay(dateKey).length > 0,
+      hasSchedule: categoryDotColors.length > 0,
+      categoryDotColors,
       isToday: dateKey === todayKey,
       isHoliday: Boolean(holidayName),
       holidayName,
@@ -292,6 +296,14 @@ const rowClass = (row: DayRow): string => {
 
 const backgroundColor = (item: ScheduleListItem): string => {
   return categoryColorMap.value.get(item.activity_category_id) || '#f3f4f6'
+}
+
+const calendarDotColorsForDay = (dateKey: string): string[] => {
+  const colors = new Set<string>()
+  schedulesForDay(dateKey).forEach((item) => {
+    colors.add(backgroundColor(item))
+  })
+  return Array.from(colors)
 }
 
 const pad2 = (value: number): string => String(value).padStart(2, '0')
@@ -1032,11 +1044,14 @@ onMounted(async () => {
             @click="openDayView(cell.dateKey)"
           >
             <span class="month-cal-day">{{ cell.day }}</span>
-            <span
-              class="month-cal-dot"
-              :class="{ 'month-cal-dot--on': cell.hasSchedule }"
-              aria-hidden="true"
-            />
+            <span class="month-cal-dots" aria-hidden="true">
+              <span
+                v-for="(dotColor, dotIndex) in cell.categoryDotColors"
+                :key="`${cell.key}-dot-${dotIndex}`"
+                class="month-cal-dot"
+                :style="{ backgroundColor: dotColor }"
+              />
+            </span>
           </button>
           <div v-else class="month-cal-cell month-cal-cell--pad" aria-hidden="true" />
         </template>

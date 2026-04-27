@@ -173,11 +173,10 @@ body {
 }
 
 .month-cal-grid {
-  flex: 1;
-  min-height: 0;
+  flex-shrink: 0;
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  grid-template-rows: repeat(6, minmax(0, 1fr));
+  grid-template-rows: repeat(6, minmax(0, 52px));
   gap: 3px;
 }
 
@@ -190,8 +189,8 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  padding: 4px 2px 6px;
+  justify-content: space-between;
+  padding: 4px 2px 4px;
   cursor: pointer;
   font: inherit;
   -webkit-tap-highlight-color: transparent;
@@ -235,17 +234,22 @@ body {
   color: #dc2626;
 }
 
+.month-cal-dots {
+  min-height: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+  gap: 2px;
+  max-width: 100%;
+  overflow: hidden;
+}
+
 .month-cal-dot {
-  margin-top: auto;
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: transparent;
   flex-shrink: 0;
-}
-
-.month-cal-dot--on {
-  background: #2563eb;
 }
 
 /* 月表示の設定（Cookie と連動） */
