@@ -259,11 +259,48 @@ body {
 }
 
 .month-cal-detail {
+  position: relative;
   margin-top: 10px;
   border-top: 1px solid #e2e8f0;
-  padding-top: 8px;
+  padding: 8px 52px 52px 8px;
   overflow-y: auto;
   min-height: 0;
+}
+
+.month-cal-fab {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.45);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.month-cal-fab:focus-visible {
+  outline: 2px solid #1d4ed8;
+  outline-offset: 2px;
+}
+
+.month-cal-fab:active {
+  transform: scale(0.96);
+}
+
+.month-cal-fab-icon {
+  font-size: 28px;
+  font-weight: 300;
+  line-height: 1;
+  margin-top: -2px;
 }
 
 .month-cal-detail-head {

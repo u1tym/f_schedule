@@ -1097,7 +1097,7 @@ onMounted(async () => {
         <button
           type="button"
           class="month-cal-detail-head"
-          @click="openCreateDialog(calendarSelectedDayKey)"
+          @click="openDayView(calendarSelectedDayKey)"
         >
           <h3 class="month-cal-detail-title">
             {{ calendarSelectedDateLabel }}（{{ calendarSelectedWeekdayLabel }}）
@@ -1124,6 +1124,14 @@ onMounted(async () => {
             <span>{{ scheduleText(item) }}</span>
           </template>
         </div>
+        <button
+          type="button"
+          class="month-cal-fab"
+          aria-label="新規スケジュール"
+          @click.stop="openCreateDialog(calendarSelectedDayKey)"
+        >
+          <span class="month-cal-fab-icon" aria-hidden="true">+</span>
+        </button>
       </section>
     </section>
 
@@ -1321,7 +1329,7 @@ onMounted(async () => {
     </section>
   </div>
 
-  <div v-if="showDialog" class="dialog-backdrop" @click.self="closeDialog">
+  <div v-if="showDialog" class="dialog-backdrop">
     <section class="dialog-card">
       <h2>{{ dialogMode === 'create' ? '新規スケジュール' : 'スケジュール編集' }}</h2>
       <p class="dialog-mode-date" v-if="dialogMode === 'create'">
