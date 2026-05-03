@@ -1124,18 +1124,20 @@ onMounted(async () => {
             <span>{{ scheduleText(item) }}</span>
           </template>
         </div>
-        <button
-          type="button"
-          class="month-cal-fab"
-          aria-label="新規スケジュール"
-          @click.stop="openCreateDialog(calendarSelectedDayKey)"
-        >
-          <span class="month-cal-fab-icon" aria-hidden="true">+</span>
-        </button>
       </section>
     </section>
 
-    <section v-else class="day-view">
+    <button
+      v-if="viewMode === 'month' && monthDisplayMode === 'calendar' && calendarSelectedDayKey"
+      type="button"
+      class="month-cal-fab"
+      aria-label="新規スケジュール"
+      @click="openCreateDialog(calendarSelectedDayKey)"
+    >
+      <span class="month-cal-fab-icon" aria-hidden="true">+</span>
+    </button>
+
+    <section v-if="viewMode === 'day'" class="day-view">
       <div class="day-view-all-day">
         <div class="day-view-gutter day-view-gutter--all-day">全日</div>
         <div class="day-view-all-day-body" @click="onAllDayAreaClick">
