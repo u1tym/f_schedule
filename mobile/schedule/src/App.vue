@@ -927,6 +927,9 @@ const fetchTodoAlertsOnStartup = async (): Promise<void> => {
 
 onMounted(async () => {
   await Promise.all([loadMonthData(), loadAppSettings()])
+  if (viewMode.value === 'month' && monthDisplayMode.value === 'calendar') {
+    calendarSelectedDayKey.value = toDateKey(new Date())
+  }
   await fetchTodoAlertsOnStartup()
 })
 </script>
