@@ -1368,22 +1368,30 @@ onMounted(async () => {
 
       <label>
         開始日
-        <input v-model="form.startDate" type="date" />
+        <span class="dialog-input-clip">
+          <input v-model="form.startDate" type="date" />
+        </span>
       </label>
 
       <label v-if="form.isAllDay">
         終了日
-        <input v-model="form.endDate" type="date" />
+        <span class="dialog-input-clip">
+          <input v-model="form.endDate" type="date" />
+        </span>
       </label>
 
       <template v-else>
         <label>
           開始時刻
-          <input v-model="form.startTime" type="time" />
+          <span class="dialog-input-clip">
+            <input v-model="form.startTime" type="time" />
+          </span>
         </label>
         <label>
           終了時刻
-          <input v-model="form.endTime" type="time" />
+          <span class="dialog-input-clip">
+            <input v-model="form.endTime" type="time" />
+          </span>
         </label>
       </template>
 

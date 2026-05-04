@@ -25,6 +25,7 @@ body {
   border-left: 1px solid #e5e7eb;
   border-right: 1px solid #e5e7eb;
   overscroll-behavior: none;
+  overflow-x: hidden;
 }
 
 .mobile-root {
@@ -923,8 +924,9 @@ body {
   inset: 0;
   background: rgba(0, 0, 0, 0.45);
   display: flex;
-  align-items: flex-end;
-  justify-content: center;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: stretch;
   z-index: 20;
   overflow-x: hidden;
   overscroll-behavior: none;
@@ -932,8 +934,9 @@ body {
 
 .dialog-card {
   box-sizing: border-box;
+  flex: 0 1 auto;
   width: 100%;
-  max-width: min(480px, 100%);
+  max-width: 100%;
   min-width: 0;
   max-height: 90dvh;
   overflow-x: hidden;
@@ -1017,6 +1020,36 @@ textarea {
   min-width: 18px;
   max-width: 18px;
   flex-shrink: 0;
+}
+
+/* iOS Safari: date/time に内在する最小幅より親が広がるのを防ぐ */
+.dialog-input-clip {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin-top: 4px;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.dialog-card .dialog-input-clip input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin-top: 0;
+}
+
+.dialog-input-clip input[type='date']::-webkit-datetime-edit,
+.dialog-input-clip input[type='time']::-webkit-datetime-edit {
+  min-width: 0;
+}
+
+.dialog-input-clip input[type='date']::-webkit-datetime-edit-fields-wrapper,
+.dialog-input-clip input[type='time']::-webkit-datetime-edit-fields-wrapper {
+  min-width: 0;
 }
 
 .dialog-actions {
