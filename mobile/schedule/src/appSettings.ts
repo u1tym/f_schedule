@@ -1,3 +1,4 @@
+import { refreshAccessToken } from './auth'
 import { getConfigApiBaseUrl } from './config'
 
 /** 画面側の月表示モード（API の calender-monthly-type と対応） */
@@ -31,8 +32,10 @@ const readErrorMessage = async (response: Response): Promise<string> => {
 
 /** GET /settings — id=0 のキー・値マップ */
 export const fetchAppSettings = async (): Promise<RawAppSettings> => {
+  await refreshAccessToken()
   const base = getConfigApiBaseUrl()
   const response = await fetch(joinUrl(base, '/settings'), {
+    credentials: 'include',
     headers: { Accept: 'application/json' },
   })
   if (!response.ok) {
@@ -43,9 +46,11 @@ export const fetchAppSettings = async (): Promise<RawAppSettings> => {
 
 /** PUT /settings — 本文は { id: 0, ...キー: 値 } */
 export const putAppSettings = async (updates: Record<string, string>): Promise<void> => {
+  await refreshAccessToken()
   const base = getConfigApiBaseUrl()
   const response = await fetch(joinUrl(base, '/settings'), {
     method: 'PUT',
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id: 0, ...updates }),
   })

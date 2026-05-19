@@ -1,3 +1,4 @@
+import { refreshAccessToken } from './auth'
 import { getApiBaseUrl } from './config'
 import type {
   ActivityCategory,
@@ -21,7 +22,9 @@ const toQueryString = (params: Record<string, string | number | undefined>): str
 }
 
 const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
+  await refreshAccessToken()
   const response = await fetch(`${apiBase}${path}`, {
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...(init?.headers || {}),

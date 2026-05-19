@@ -32,11 +32,19 @@ npm run dev
 
 月表示の一覧／カレンダー・週の始まりは **Cookie ではなく** 起動時に `GET /settings` で取得し、歯車から変更したときに `PUT /settings` で保存します（キー名は API 仕様どおり `calender-monthly-type` / `calender-weekly-start`）。
 
+### 認証 API（JWT 更新）
+
+スケジュール API・設定 API の各リクエストの直前に **`POST /refresh`** を呼び出し、HttpOnly Cookie の JWT を延長します（仕様はリポジトリ直下の **`API_LOGIN_SPEC.md`** §4.3）。
+
+- 基点: **`VITE_LOGIN_API_BASE_URL`**（未設定時は `http://127.0.0.1:8000/api/auth`）
+- 例（Nginx）: `https://example.com/api/auth` → `/refresh` は `https://example.com/api/auth/refresh`
+
 ### 接続先を変えるには
 
 1. 本番のスケジュール API: `VITE_SCHEDULE_API_ORIGIN` または `src/config.ts` の `DEFAULT_API_ORIGIN`
 2. 本番の設定 API: **`VITE_CONFIG_API_ORIGIN`** または `DEFAULT_CONFIG_API_ORIGIN`
-3. 開発時のプロキシ先: `vite.config.ts` の `server.proxy['/api'].target`
+3. 認証 API（`/refresh`）: **`VITE_LOGIN_API_BASE_URL`**
+4. 開発時のプロキシ先: `vite.config.ts` の `server.proxy['/api'].target`
 
 ## 注意喚起 TODO（初回表示）
 
